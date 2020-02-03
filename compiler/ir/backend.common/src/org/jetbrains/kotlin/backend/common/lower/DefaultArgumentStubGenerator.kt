@@ -54,8 +54,9 @@ open class DefaultArgumentStubGenerator(
 
     private fun lower(irFunction: IrFunction): List<IrFunction>? {
         val visibility = defaultArgumentStubVisibility(irFunction)
-        val newIrFunction = irFunction.generateDefaultsFunction(context, skipInlineMethods, skipExternalMethods, forceSetOverrideSymbols, visibility)
-            ?: return null
+        val newIrFunction =
+            irFunction.generateDefaultsFunction(context, skipInlineMethods, skipExternalMethods, forceSetOverrideSymbols, visibility)
+                ?: return null
         if (newIrFunction.origin == IrDeclarationOrigin.FAKE_OVERRIDE) {
             return listOf(irFunction, newIrFunction)
         }
@@ -152,6 +153,11 @@ open class DefaultArgumentStubGenerator(
         newIrFunction: IrFunction,
         params: MutableList<IrValueDeclaration>
     ): IrExpression {
+        val handlerDeclaration = newIrFunction.valueParameters.last()
+        if (needsSuperCallHandlerCheck(irFunction)) {
+            generateSuperCallHandlerCheck(irFunction, newIrFunction, handlerDeclaration)
+        }
+
         val dispatchCall = irCall(irFunction.symbol).apply {
             passTypeArgumentsFrom(newIrFunction)
             dispatchReceiver = newIrFunction.dispatchReceiverParameter?.let { irGet(it) }
@@ -169,7 +175,6 @@ open class DefaultArgumentStubGenerator(
             }
         }
         return if (needSpecialDispatch(irFunction)) {
-            val handlerDeclaration = newIrFunction.valueParameters.last()
             // if $handler != null $handler(a, b, c) else foo(a, b, c)
             irIfThenElse(
                 irFunction.returnType,
@@ -178,6 +183,15 @@ open class DefaultArgumentStubGenerator(
                 generateHandleCall(handlerDeclaration, irFunction, newIrFunction, params)
             )
         } else dispatchCall
+    }
+
+    protected open fun needsSuperCallHandlerCheck(irFunction: IrSimpleFunction) = false
+    protected open fun IrBlockBodyBuilder.generateSuperCallHandlerCheck(
+        irFunction: IrFunction,
+        newIrFunction: IrFunction,
+        handlerDeclaration: IrValueDeclaration) {
+        assert(needsSuperCallHandlerCheck(irFunction as IrSimpleFunction))
+        error("This method should be overridden")
     }
 
     protected open fun needSpecialDispatch(irFunction: IrSimpleFunction) = false
@@ -506,7 +520,11 @@ private fun IrFunction.generateDefaultsFunctionImpl(
         val markerType = context.ir.symbols.defaultConstructorMarker.defaultType.makeNullable()
         newFunction.addValueParameter("marker".synthesizedString, markerType, IrDeclarationOrigin.DEFAULT_CONSTRUCTOR_MARKER)
     } else if (context.ir.shouldGenerateHandlerParameterForDefaultBodyFun()) {
-        newFunction.addValueParameter("handler".synthesizedString, context.irBuiltIns.anyNType, IrDeclarationOrigin.METHOD_HANDLER_IN_DEFAULT_FUNCTION)
+        newFunction.addValueParameter(
+            "handler".synthesizedString,
+            context.irBuiltIns.anyNType,
+            IrDeclarationOrigin.METHOD_HANDLER_IN_DEFAULT_FUNCTION
+        )
     }
 
     // TODO some annotations are needed (e.g. @JvmStatic), others need different values (e.g. @JvmName), the rest are redundant.
