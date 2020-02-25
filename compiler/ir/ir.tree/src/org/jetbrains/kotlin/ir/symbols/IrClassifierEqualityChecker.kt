@@ -13,6 +13,7 @@ import org.jetbrains.kotlin.ir.declarations.IrPackageFragment
 import org.jetbrains.kotlin.ir.declarations.IrSymbolOwner
 import org.jetbrains.kotlin.ir.util.isLocalClass
 import org.jetbrains.kotlin.name.FqName
+import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.resolve.DescriptorUtils
 import org.jetbrains.kotlin.resolve.descriptorUtil.fqNameSafe
 
@@ -32,6 +33,9 @@ object FqNameEqualityChecker : IrClassifierEqualityChecker {
     }
 
     override fun getHashCode(symbol: IrClassifierSymbol): Int {
+        // Workaround for StubType
+        if (symbol.descriptor.name == Name.special("<ERROR CLASS>")) return symbol.descriptor.hashCode()
+
         if (symbol.isBound) {
             val owner = symbol.owner
             if (owner is IrClass && !owner.isLocalClass()) {
