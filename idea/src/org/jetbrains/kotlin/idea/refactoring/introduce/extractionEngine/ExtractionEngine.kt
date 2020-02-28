@@ -16,7 +16,6 @@
 
 package org.jetbrains.kotlin.idea.refactoring.introduce.extractionEngine
 
-import com.intellij.openapi.actionSystem.ex.ActionUtil
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.project.Project
@@ -27,6 +26,7 @@ import com.intellij.refactoring.BaseRefactoringProcessor
 import com.intellij.ui.awt.RelativePoint
 import org.jetbrains.kotlin.idea.refactoring.checkConflictsInteractively
 import org.jetbrains.kotlin.idea.refactoring.introduce.showErrorHint
+import org.jetbrains.kotlin.idea.util.ProgressIndicatorUtils
 import org.jetbrains.kotlin.idea.util.application.executeWriteCommand
 import javax.swing.event.HyperlinkEvent
 
@@ -59,7 +59,7 @@ class ExtractionEngine(
         val project = extractionData.project
 
         val adjustExtractionData = helper.adjustExtractionData(extractionData)
-        val analysisResult = ActionUtil.underModalProgress(project, "Analyze extraction data...") {
+        val analysisResult = ProgressIndicatorUtils.underModalProgress(project, "Analyze extraction data...") {
             adjustExtractionData.performAnalysis()
         }
 
